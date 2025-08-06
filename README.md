@@ -3,29 +3,26 @@
 This repository contains the code for the neural acoustic matching approach presented in the paper: 
 "Conditioned Wave-U-Net for Acoustic Matching of Speech in Shared XR Environments". 
 
-Problem formulation:
+**Problem formulation:**
 
-The goal of our approach is to modify the properties of the \textit{content} speech signal $s_1r_1$ so that it sounds as if it originated from the acoustic space characterized by the \textit{style} speech signal $s_2r_2$, i.e. to estimate the reverberant \textit{target} signal $s_1r_2$, given two input signals $s_1r_1$ and $s_2r_2$. 
+The goal of our approach is to modify the properties of the *content* speech signal $s_1r_1$ so that it sounds as if it originated from the acoustic space characterized by the *style* speech signal $s_2r_2$, i.e. to estimate the reverberant *target* signal $s_1r_2$, given two input signals $s_1r_1$ and $s_2r_2$. 
 
-Generating synthetic impulse responses:
+**Generating a database of synthetic impulse responses:**
 
-Our dataset contains speech convolved with synthetically generated RIRs. The procedure to generate RIR is availble in the notebooks rir_dataset_1.ipynb. We generate one mono RIR per randomly generated shoebox room using a fixed source-receiver distance. We use MASP python package for RIR synthesis. 
+Our dataset contains speech convolved with synthetically generated RIRs. The procedure to generate RIR is availble in the notebooks `rir_dataset_1.ipynb`. We generate one mono RIR per randomly generated shoebox room using a fixed source-receiver distance. We use MASP python package for RIR synthesis. 
 
-Generating metadata for training: 
+**Generating metadata for training:**
 
-We do not convolve speech samples with RIRs prior to training. This is done during training - this way we can use the same data to generate various pairs of content and style speech. Before training, we generate a csv file with list of such pairs. It is is used by the dataloader. The generation of the metadata for training is available in the notebook dataset_prepare_metadata_1.ipynb. An example of the metadata file is available in dataset-metadata/nonoise_48khz_guestxr_pilot.csv. 
+We do not convolve speech samples with RIRs prior to training. This is done during training - this way we can use the same data to generate various pairs of content and style speech. Before training, we generate a csv file with list of such pairs. It is is used by the dataloader. The generation of the metadata for training is available in the notebook `dataset_prepare_metadata_1.ipynb`. An example of the metadata file is available in `dataset-metadata/nonoise_48khz_guestxr_pilot.csv`. 
 
-Dataset class: 
+**Dataset class:**
 
 The Dataset class (src/dataset.py) uses the list of predefined combinations of speech and RIRs. It loads the speech and RIR signals, randomly cuts the non-silent speech excerpts and convolves speech with RIRs. A datapoint loader outputs content speech, style speech, target speech and anechoic speech signals. 
 
-Models:
+**Models:**
 
-Our approach constists of two main networks: the condition generation network and the conditioned encoder-decoder network. In the paper we use Reverb Encoder from FINS[1] as the condition generation network and the Wave-U-Net with FiLM layers as the conditioned encoder-decoder network. Model definitions are provided in the file src/models.py. 
+Our approach constists of two main networks: the condition generation network and the conditioned encoder-decoder network. In the paper we use Reverb Encoder from FINS [1] as the condition generation network and the Wave-U-Net with FiLM layers as the conditioned encoder-decoder network. Model definitions are provided in the file `src/models.py`. 
 
-Training:
+**Training:**
 
-The trainer class is initialized with a yaml config file (config/basic.yaml). We use standard supervised training scheme. The training procedure is available in the file src/trainer.py. To run training experiments with various parameter combinations, we use the file src/runexp.py. 
-
-
-Evaluation:
+The trainer class is initialized with a yaml config file (`config/basic.yaml`). We use standard supervised training scheme. The training procedure is available in the file `src/trainer.py`. To run training experiments with various parameter combinations, we use the file `src/runexp.py`. 
