@@ -1,0 +1,55 @@
+# general arguments
+projectdir: /home/ubuntu/joanna/reverb-match-cond-u-net/
+savedir: /home/ubuntu/Data/RESULTS-reverb-match-cond-u-net/
+device: cuda
+fs: 48000 
+
+# data and model parameters
+sig_len: 98304 
+rev_emb_len: 512 
+btl_len: 512
+n_blocks_revenc: 12
+n_blocks_enc: 12
+n_layers_dec: 7
+learnable_pooling: False
+symmetric_film: 1
+
+
+# dataset parameters
+style_rir: null # null means it will be randomly selected
+content_rir: null # null means it will be randomly selected
+# df_metadata: /home/ubuntu/guestxr2/home/ubuntu/joanna/reverb-match-cond-u-net/dataset-metadata/14-02-2025--12-20_data_set_t60diff.csv
+df_metadata: /home/ubuntu/guestxr2/home/ubuntu/joanna/reverb-match-cond-u-net/dataset-metadata/17-05-2024--15-42_data_set.csv
+# df_metadata: /home/ubuntu/guestxr2/home/ubuntu/joanna/reverb-match-cond-u-net/dataset-metadata/14-02-2025--12-20_data_set_t60diff_pilot.csv
+p_noise: 0
+
+# training arguments
+modeltype: c_wunet
+num_epochs: 300
+checkpoint_step: 10
+batch_size: 8
+learn_rate: 0.0001
+trainscheme: "separate"
+optimizer: adam
+losstype: stft
+loss_alphas: [[1]]
+store_outputs: 1
+split: train
+
+# arguments to resume training
+resume_checkpoint: null
+resume_tboard: null
+
+# evaluation arguments
+device: cuda
+batch_size_eval: 2
+checkpoint_development: 0
+eval_file_name: eval_all.csv
+eval_dir: 
+eval_split: test
+rt60diffmin: -3
+rt60diffmax: 3
+N_datapoints: 1000
+train_results_file: /home/ubuntu/guestxr2/home/ubuntu/Data/RESULTS-reverb-match-cond-u-net/runs-exp-15-01-2024/18-01-2024--00-56_many-to-many_stft/checkpoint_best.pt
+eval_tag: 
+evalsavedir: 

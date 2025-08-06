@@ -1,0 +1,2 @@
+[2025-05-28-13:27:04] My first run of the experiment
+[2025-05-28-13:34:52] Checking if experiment loop works ok
