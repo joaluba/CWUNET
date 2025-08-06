@@ -9,23 +9,31 @@ The goal of our approach is to modify the properties of the *content* speech sig
 
 **Generating a database of synthetic impulse responses:**
 
-Our dataset contains speech convolved with synthetically generated RIRs. The procedure to generate RIR is availble in the notebooks `rir_dataset_1.ipynb`. We generate one mono RIR per randomly generated shoebox room using a fixed source-receiver distance. We use MASP python package for RIR synthesis. 
+Our dataset contains speech convolved with synthetically generated RIRs. The procedure to generate RIRs is availble in the notebook `rir_dataset_1.ipynb`. We generate one mono RIR per randomly generated shoebox room using a fixed source-receiver distance. We use MASP python package for RIR synthesis. 
 
 **Generating metadata for training:**
 
-We do not convolve speech samples with RIRs prior to training. This is done during training - this way we can use the same data to generate various pairs of content and style speech. Before training, we generate a csv file with list of such pairs. It is is used by the dataloader. The generation of the metadata for training is available in the notebook `dataset_prepare_metadata_1.ipynb`. An example of the metadata file is available in `dataset-metadata/nonoise_48khz_guestxr_pilot.csv`. 
+We convolve speech samples with RIRs during training - this way we can use the same data to generate various pairs of content and style speech. Before training, we generate a csv file with list of such pairs. It is used by the dataloader. The generation of the metadata for training is available in the notebook `dataset_prepare_metadata_1.ipynb`.
 
 **Dataset class:**
 
-The Dataset class (`src/dataset.py`) uses the list of predefined combinations of speech and RIRs. It loads the speech and RIR signals, randomly cuts the non-silent speech excerpts and convolves speech with RIRs. A datapoint loader outputs content speech, style speech, target speech and anechoic speech signals. 
+The dataset class (`src/dataset.py`) uses the list of predefined combinations of speech and RIRs. It loads the speech and RIR signals, randomly cuts the non-silent speech excerpts and convolves speech with RIRs. A datapoint loader outputs content speech, style speech, target speech and anechoic speech signals. 
 
 **Models:**
 
-Our approach constists of two main networks: the condition generation network and the conditioned encoder-decoder network. In the paper we use Reverb Encoder from FINS [1] as the condition generation network and the Wave-U-Net with FiLM layers as the conditioned encoder-decoder network. Model definitions are provided in the file `src/models.py`. 
+Our approach constists of two main networks: the *Reverb Encoder* network and the *Transfer* network, conditioned on the embedding from the Reverb Encoder. In the paper we use encoder from FINS [1] for the Reverb Encoder, Wave-U-Net with FiLM layers as the conditioned Transfer network. Model definitions are provided in the file `src/models.py`. 
 
 **Training:**
 
-The trainer class is initialized with a yaml config file (`config/basic.yaml`). We use standard supervised training scheme. The training procedure is available in the file `src/trainer.py`. To run training experiments with various parameter combinations, we use the file `src/runexp.py`. 
+We use standard supervised training scheme. The training procedure is available in the file `src/trainer.py`. To run training experiments with various parameter combinations, we use the file `src/runexp.py`. 
+
+**Evaluation**
+
+About evaluation..
+
+**Configuration**
+
+Most classes are initialized with a yaml config file (`config/basic.yaml`), which contains all necessary parameters.
 
 **Audio demo**
 
