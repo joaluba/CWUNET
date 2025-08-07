@@ -149,7 +149,6 @@ class waveunet(nn.Module):
         self.n_layers = config["n_blocks_enc"]
         self.z_channels = config["rev_emb_len"]
         self.channels_interval = 24
-        self.symmetric_film = bool(config["symmetric_film"])
         # encoder:
         encoder_in_channels_list = [1] + [i * self.channels_interval for i in range(1, self.n_layers)]
         # [1, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240, 264]
@@ -261,9 +260,8 @@ if __name__ == "__main__":
     # specify parameters of the model
     config["fs"] = 48000
     config["sig_len"] = 98304
-    config["rev_emb_len"] = 512
-    config["btl_len"] = 512
-    config["n_blocks_revenc"] = 12
+    config["rev_emb_len"] = 124
+    config["n_blocks_revenc"] = 14
     config["n_blocks_enc"] = 12
     config["device"]="cpu"
 
@@ -274,7 +272,6 @@ if __name__ == "__main__":
     s_content=torch.randn(1,1,config["sig_len"]).to(config["device"])
     s_style=torch.randn(1,1,config["sig_len"]).to(config["device"])
     reverb_emb=torch.randn(1,1,config["rev_emb_len"]).to(config["device"])
-    v_bottleneck=torch.randn(1,1,config["btl_len"]).to(config["device"])
 
     # ----- check reverb encoder -----
     print(f"\n%%%%%%%%%%%%% SUMMARY FOR THE REVERB ENCODER (FINS) %%%%%%%%%%%%%%")

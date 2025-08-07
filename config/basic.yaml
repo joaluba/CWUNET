@@ -1,30 +1,26 @@
-# general arguments
-projectdir: /home/ubuntu/joanna/reverb-match-cond-u-net/
-savedir: /home/ubuntu/Data/RESULTS-reverb-match-cond-u-net/
-device: cuda
+# ---- general arguments ----
+projectdir: /home/ubuntu/joanna/CWUNET/
+savedir: /home/ubuntu/Data_guestxr/RESULTS-reverb-match-cond-u-net/
+device: cpu
 fs: 48000 
 
-# data and model parameters
+# ---- data and model parameters ----
 sig_len: 98304 
-rev_emb_len: 512 
-btl_len: 512
-n_blocks_revenc: 12
-n_blocks_enc: 12
-n_layers_dec: 7
-learnable_pooling: False
-symmetric_film: 1
+rev_emb_len: 512 # length of the reverberation embedding
+n_blocks_revenc: 12 # number of blocks in the Reverb Encoder
+n_blocks_enc: 12 # number of blocks in the Encoder and Decoder of the Wave-U-Net
+learnable_pooling: False # whether to use learnable pooling in the Reverb Encoder
 
+# ---- dataset parameters ----
+style_rir: null # null means it will be randomly selected (otherwise put the path to the style RIR)
+content_rir: null # null means it will be randomly selected (otherwise put the path to the content RIR)
+df_metadata: /home/ubuntu/joanna/CWUNET/dataset-metadata/ds_metadata_example.csv
+has_clones: False # whether the dataset has clones (i.e. for each RIR, it has an alternative RIR from the same room but different pos.)
+p_noise: 0 # probability of adding noise in the training set
+split: train
 
-# dataset parameters
-style_rir: null # null means it will be randomly selected
-content_rir: null # null means it will be randomly selected
-# df_metadata: /home/ubuntu/guestxr2/home/ubuntu/joanna/reverb-match-cond-u-net/dataset-metadata/14-02-2025--12-20_data_set_t60diff.csv
-df_metadata: /home/ubuntu/guestxr2/home/ubuntu/joanna/reverb-match-cond-u-net/dataset-metadata/17-05-2024--15-42_data_set.csv
-# df_metadata: /home/ubuntu/guestxr2/home/ubuntu/joanna/reverb-match-cond-u-net/dataset-metadata/14-02-2025--12-20_data_set_t60diff_pilot.csv
-p_noise: 0
-
-# training arguments
-modeltype: c_wunet
+# ---- training parameters ----
+modeltype: c_wunet 
 num_epochs: 300
 checkpoint_step: 10
 batch_size: 8
@@ -32,9 +28,8 @@ learn_rate: 0.0001
 trainscheme: "separate"
 optimizer: adam
 losstype: stft
-loss_alphas: [[1]]
+loss_alphas: [[1]] 
 store_outputs: 1
-split: train
 
 # arguments to resume training
 resume_checkpoint: null
