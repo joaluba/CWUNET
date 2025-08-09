@@ -84,6 +84,9 @@ class DatasetReverbTransfer(Dataset):
         else: 
             r2 = hlp.torch_load_mono(self.style_ir,self.fs)
 
+        # truncate silence in all rirs:
+        r1=hlp.truncate_ir_silence(r1, self.fs, threshold_db=20)
+        r2=hlp.truncate_ir_silence(r2, self.fs, threshold_db=20)
 
         # Scale rirs so that the peak is at 1
         r1=hlp.torch_normalize_max_abs(r1) 
@@ -93,11 +96,6 @@ class DatasetReverbTransfer(Dataset):
         s1r1 = torch.from_numpy(signal.fftconvolve(s1, r1,mode="full"))[:,:self.sig_len]
         s2r2 = torch.from_numpy(signal.fftconvolve(s2, r2,mode="full"))[:,:self.sig_len]
         s1r2 = torch.from_numpy(signal.fftconvolve(s1, r2,mode="full"))[:,:self.sig_len]
-
-        # # Synchronize all signals to anechoic signal
-        _,s1r1,_ = hlp.synch_sig2(s1,s1r1)
-        _,s1r2,_ = hlp.synch_sig2(s1,s1r2)
-        _,s2r2,_ = hlp.synch_sig2(s2,s2r2)
 
         # generate background noise samples
         n1=hlp.gen_rand_colored_noise(self.p_noise,self.sig_len)
@@ -147,7 +145,7 @@ class DatasetReverbTransfer(Dataset):
     
 
     def get_info(self,index,id="style"):
-        df_pair=self.df_ds[self.df_ds["pair_idx"]==index]
+        df_pair=self.df_ds[self.df_ds["pair_id"]==index]
         if id=="style":
             styleorcontent_idx=1
         elif id=="content":

@@ -14,7 +14,7 @@ learnable_pooling: False # whether to use learnable pooling in the Reverb Encode
 # ---- dataset parameters ----
 style_rir: null # null means it will be randomly selected (otherwise put the path to the style RIR)
 content_rir: null # null means it will be randomly selected (otherwise put the path to the content RIR)
-df_metadata: /home/ubuntu/joanna/CWUNET/dataset-metadata/ds_metadata_example.csv
+df_metadata: /home/ubuntu/joanna/CWUNET/dataset-metadata/ds2_metadata_example.csv
 has_clones: False # whether the dataset has clones (i.e. for each RIR, it has an alternative RIR from the same room but different pos.)
 p_noise: 0 # probability of adding noise in the training set
 split: train
