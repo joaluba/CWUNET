@@ -124,25 +124,8 @@ class DatasetReverbTransfer(Dataset):
         # # check indices of datapoint where the rt60 for content is lower than rt60 for style
         selected=self.df_ds[(self.df_ds["diff_rt60"]>diff_rt60_min) & (self.df_ds["diff_rt60"]<diff_rt60_max)]
         selected=selected.iloc[::2]
-        selected=selected["pair_idx"].tolist()
+        selected=selected["pair_id"].tolist()
         return selected
-    
-    def get_target_clone(self,index, sAnecho):
-        sAnecho=hlp.batch_squeeze(sAnecho)
-        # get the target signal with a cloned RIR (same room, but different position)
-        df_info=self.get_info(index,id="style")
-        original_rir_path=df_info["ir_file_path"]
-        dir_name = dirname(original_rir_path)
-        file_name = basename(original_rir_path)
-        clone_file_name = "clone_" + file_name
-        # cloned impulse response
-        rir_clone = hlp.torch_load_mono(join(dir_name,clone_file_name),self.fs)
-        sTargetClone = torch.from_numpy(signal.fftconvolve(sAnecho, rir_clone,mode="full"))[:,:self.sig_len]
-        # Synchronize to anechoic signal
-        _,sTargetClone,_ = hlp.synch_sig2(sAnecho,sTargetClone)
-        sTargetClone=hlp.torch_normalize_max_abs(sTargetClone)
-        return sTargetClone.unsqueeze(0)
-    
 
     def get_info(self,index,id="style"):
         df_pair=self.df_ds[self.df_ds["pair_id"]==index]

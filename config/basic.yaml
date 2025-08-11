@@ -1,6 +1,5 @@
 # ---- general arguments ----
 projectdir: /home/ubuntu/joanna/CWUNET/
-savedir: /home/ubuntu/Data_guestxr/RESULTS-reverb-match-cond-u-net/
 device: cpu
 fs: 48000 
 
@@ -20,23 +19,23 @@ p_noise: 0 # probability of adding noise in the training set
 split: train
 
 # ---- training parameters ----
+savedir: /home/ubuntu/Data_guestxr/RESULTS-reverb-match-cond-u-net/ # where to store training results,
+# savedir should have a unique name to later find the results (like a data and important params)
 modeltype: c_wunet 
 num_epochs: 300
 checkpoint_step: 10
 batch_size: 8
 learn_rate: 0.0001
 trainscheme: "separate"
-optimizer: adam
-losstype: stft
-loss_alphas: [[1]] 
+losstype: stft # see loss.py for options
+loss_alphas: [1]
 store_outputs: 1
 
 # arguments to resume training
-resume_checkpoint: null
-resume_tboard: null
+resume_from_checkpoint: null # name of the checkpoint (in the savedir) to resume training from
 
 # evaluation arguments
-device: cuda
+device: cpu
 batch_size_eval: 2
 checkpoint_development: 0
 eval_file_name: eval_all.csv

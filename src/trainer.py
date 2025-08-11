@@ -8,6 +8,7 @@ import loss
 import models
 import helpers as hlp
 from os.path import join as pjoin
+from os import makedirs
 import yaml
 
 class Trainer(torch.nn.Module):
@@ -23,11 +24,12 @@ class Trainer(torch.nn.Module):
         device=config["device"]
         learn_rate=config["learn_rate"]
         batch_size=config["batch_size"]
-        optimizer=config["optimizer"]
-        resume_checkpoint=config["resume_checkpoint"]
-        resume_tboard=config["resume_tboard"]
-        savedir=config["savedir"]
+        resume_from_checkpoint=config["resume_from_checkpoint"]
+        resume_tboard_dir=config["savedir"]
         trainscheme=config["trainscheme"]
+        savedir=config["savedir"]
+
+        makedirs(savedir, exist_ok=True)
 
         # ---- MODELS: ----
         self.model=load_chosen_model(config,modeltype).to(device)
@@ -40,8 +42,11 @@ class Trainer(torch.nn.Module):
             self.optimizer_CN=  torch.optim.AdamW(self.model.conditioning_network.parameters(), learn_rate)
 
         # ---- LOSS CRITERION: ----
+
+        # load training loss function
         self.criterion=loss.load_chosen_loss(config,losstype).to(device)
-        # load st<ft loss as a validation loss for all conditions
+
+        # load other loss functions to be used as validation loss functions
         self.criterion_val_stft=loss.load_chosen_loss(config,"stft").to(device)
         self.criterion_val_logmel=loss.load_chosen_loss(config,"logmel").to(device)
         self.criterion_val_wave=loss.load_chosen_loss(config,"wave").to(device)
@@ -57,14 +62,14 @@ class Trainer(torch.nn.Module):
         self.valloader = torch.utils.data.DataLoader(self.valset, batch_size=batch_size, shuffle=False, num_workers=6,pin_memory=True)
 
         # ---- PREPARE TRAINING LOOP (starting from scratch or resume training): ----
-        if resume_checkpoint==None:
+        if resume_from_checkpoint is None:
             print("Starting new training from scratch in : "+ savedir)
             self.writer=SummaryWriter(savedir) 
             self.loss_evol=[]
             self.start_epoch=0
             self.best_val_loss=float("inf")
         else:
-            checkpoint_path=pjoin(savedir,resume_checkpoint)
+            checkpoint_path=pjoin(savedir,resume_from_checkpoint)
             train_results=torch.load(checkpoint_path,map_location=device)
             self.model.load_state_dict(train_results["model_state_dict"])
             # ---- OPTIMIZERS: ----
@@ -74,15 +79,16 @@ class Trainer(torch.nn.Module):
                 self.optimizer_AE.load_state_dict(train_results["optimizer_AE_state_dict"])
                 self.optimizer_CN.load_state_dict(train_results["optimizer_CN_state_dict"])       
 
-            self.writer=SummaryWriter(resume_tboard)
+            self.writer=SummaryWriter(resume_tboard_dir)
             self.loss_evol = train_results['loss']
-            self.start_epoch = train_results['epoch']
+            self.start_epoch = train_results['epoch']+1
             self.best_val_loss=float("inf")
             print("Resume training from epoch "+ str(self.start_epoch) + " from training "+ savedir)
 
             
     def train(self):
 
+        # trainng parameters
         store_outputs = self.config["store_outputs"]
         savedir = self.config["savedir"]
         num_epochs = self.config["num_epochs"]
@@ -91,7 +97,7 @@ class Trainer(torch.nn.Module):
         checkpoint_step =self.config["checkpoint_step"]
         trainscheme=self.config["trainscheme"]
         
-
+        # save training config file in the savedir dedicated for this training
         if (bool(store_outputs)):
             with open(pjoin(savedir,'train_config.yaml'), 'w') as yaml_file:
                 yaml.dump(self.config, yaml_file, default_flow_style=False)
@@ -103,12 +109,13 @@ class Trainer(torch.nn.Module):
 
             # ----- Update learning rate: -----
             if trainscheme=="joint":
-                # self.learn_rate_update(epoch,20,0.5,self.optimizer)
-                print(f"Epoch {epoch+1}: Learning Rate: {self.optimizer.param_groups[0]['lr']}") 
+                self.learn_rate_update(epoch,20,1,self.optimizer)
+                print(f"Epoch {epoch}: Learning Rate: {self.optimizer.param_groups[0]['lr']}") 
             elif trainscheme=="separate":
-                # self.learn_rate_update(epoch,20,0.5,self.optimizer_CN)
-                # self.learn_rate_update(epoch,20,0.5,self.optimizer_AE)
-                print(f"Epoch {epoch+1}: Learning Rate: {self.optimizer_AE.param_groups[0]['lr']}") 
+                self.learn_rate_update(epoch,20,1,self.optimizer_CN)
+                self.learn_rate_update(epoch,20,1,self.optimizer_AE)
+                print(f"Epoch {epoch}: Learning Rate: {self.optimizer_CN.param_groups[0]['lr']}") 
+                print(f"Epoch {epoch}: Learning Rate: {self.optimizer_AE.param_groups[0]['lr']}") 
 
             
             # ----- Training loop for this epoch: -----
@@ -232,33 +239,28 @@ class Trainer(torch.nn.Module):
 
 
     def learn_rate_update(self,curr_epoch, step,factor,optimizer):
-        # Optionally, update learning rate every "step" epochs
+        # Update learning rate every "step" epochs
         if (curr_epoch + 1) % step == 0:
             for param_group in optimizer.param_groups:
                 param_group['lr'] *= factor                
         
     def logaudio_tboard(self,writer):
         # Function to log specific audio samples in tensorboard
-        metadata = self.config["df_metadata"]
-        is_vae = self.config["is_vae"]
         fs = self.config["fs"]
         device=self.config["device"]
 
         with torch.no_grad():
+            
+            chosen_idx_derev=self.valset.get_idx_with_rt60diff(-3,-0.7)
+            chosen_idx_rerev=self.valset.get_idx_with_rt60diff(0.7,3)
 
-            # choose samples from the dataset:
-            if metadata.endswith("pilot.csv"):
-                chosen_idx=[1,2,3,4,5,6,7,8,9,10]
-            else:
-                chosen_idx=[2621,2788,3589,4223,4817,1835,2969,3940,4051,4378]
-
+            chosen_idx=chosen_idx_derev[:3]+chosen_idx_rerev[:3]
+            
             # inference for the chosen samples:
             for i in range(0,len(chosen_idx)):
                 data=self.trainset[chosen_idx[i]]
                 data = [data[i].unsqueeze(0) for i in range(len(data))]
                 sContent,_,sTarget, sPrediction=infer(self.model,data,device)
-                if bool(is_vae):
-                    sPrediction, _, _ = sPrediction
 
                 # wave formatting:
                 wave_content=sContent[0,:,:].squeeze(0)
@@ -320,21 +322,6 @@ def load_chosen_model(config,model_type):
         autoencoder=models.waveunet(config)
         condgenerator=models.ReverbEncoder(config)
         jointmodel=models.cond_reverb_transfer(autoencoder,condgenerator)
-        config["is_vae"]=0
-    
-    elif model_type=="c_varwunet":
-        autoencoder=models.varwaveunet(config)
-        condgenerator=models.ReverbEncoder(config)
-        jointmodel=models.cond_reverb_transfer(autoencoder,condgenerator)
-        config["is_vae"]=1
-
-    elif model_type=="c_fins":
-        autoencoder=models.fins_encdec(config)
-        condgenerator=models.ReverbEncoder(config)
-        jointmodel=models.cond_reverb_transfer(autoencoder,condgenerator)
-        config["is_vae"]=0
-        config["is_vae"]=0
-
     else:
         print("This model type is not implemented")
 
@@ -358,9 +345,11 @@ if __name__ == "__main__":
     # set arguments for running a pilot training
     config["num_epochs"]=3
     config["checkpoint_step"]=1
-    config["savedir"]="/home/ubuntu/joanna/CWUNET/results/pilot"
+    config["savedir"]="/home/ubuntu/joanna/CWUNET/results/pilot_1"
     config["modeltype"]="c_wunet"
-    config["df_metadata"]="../CWUNET/dataset-metadata/nonoise_48khz_guestxr_pilot.csv"
+    config["df_metadata"]="../CWUNET/dataset-metadata/ds1_metadata_example.csv"
+    config["resume_from_checkpoint"]="checkpoint0.pt"
+
     new_experiment=Trainer(config)
     new_experiment.train()
 

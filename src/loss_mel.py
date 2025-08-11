@@ -17,7 +17,6 @@ import torch
 import torch.nn.functional as F
 
 
-
 class LogMelSpectrogramLoss(torch.nn.Module):
     def __init__(self, sample_rate=48000, n_fft=2048, hop_length=512, n_mels=128):
         super(LogMelSpectrogramLoss, self).__init__()
