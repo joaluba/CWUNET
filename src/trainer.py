@@ -258,7 +258,7 @@ class Trainer(torch.nn.Module):
             
             # inference for the chosen samples:
             for i in range(0,len(chosen_idx)):
-                data=self.trainset[chosen_idx[i]]
+                data=self.valset[chosen_idx[i]]
                 data = [data[i].unsqueeze(0) for i in range(len(data))]
                 sContent,_,sTarget, sPrediction=infer(self.model,data,device)
 
@@ -348,7 +348,7 @@ if __name__ == "__main__":
     config["savedir"]="/home/ubuntu/joanna/CWUNET/results/pilot_1"
     config["modeltype"]="c_wunet"
     config["df_metadata"]="../CWUNET/dataset-metadata/ds1_metadata_example.csv"
-    config["resume_from_checkpoint"]="checkpoint0.pt"
+    # config["resume_from_checkpoint"]="checkpoint0.pt"
 
     new_experiment=Trainer(config)
     new_experiment.train()
