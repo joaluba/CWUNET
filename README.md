@@ -3,6 +3,12 @@
 This repository contains the code for the neural acoustic matching approach presented in the paper: 
 *Conditioned Wave-U-Net for Acoustic Matching of Speech in Shared XR Environments*
 
+<p align="center">
+  <img src="images/problem.png" width="300">
+  <img src="images/network.svg" width="300">
+  <img src="images/block.svg" width="300">
+</p>
+
 **Problem formulation:**
 
 The goal of our approach is to modify the properties of the *content* speech signal $s_1r_1$ so that it sounds as if it originated from the acoustic space characterized by the *style* speech signal $s_2r_2$, i.e. to estimate the reverberant *target* signal $s_1r_2$, given two input signals $s_1r_1$ and $s_2r_2$. 
