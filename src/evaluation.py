@@ -1,35 +1,27 @@
 import torch
-from tqdm import tqdm
-from datetime import datetime
-import time
-import sys
-import os
-from os.path import join as pjoin
-from torch.utils.tensorboard import SummaryWriter
-from torchmetrics.audio import ScaleInvariantSignalDistortionRatio, SignalDistortionRatio, SpeechReverberationModulationEnergyRatio, PerceptualEvaluationSpeechQuality, ShortTimeObjectiveIntelligibility
-from torchaudio.pipelines import SQUIM_OBJECTIVE, SQUIM_SUBJECTIVE
-from pysepm import fwSNRseg, bsd, wss
 import numpy as np
 import pandas as pd
-import soundfile as sf
 import random
-sys.path.insert(0,'/home/ubuntu/joanna/reverb-match-cond-u-net/urgent2024_challenge/evaluation_metrics')
-from calculate_intrusive_se_metrics import lsd_metric, mcd_metric
+import os
+from tqdm import tqdm
+from os.path import join as pjoin
+from torch.utils.data import Subset
+import argparse
+# modules with audio metrics
+from torchmetrics.audio import ScaleInvariantSignalDistortionRatio, SignalDistortionRatio, SpeechReverberationModulationEnergyRatio, PerceptualEvaluationSpeechQuality, ShortTimeObjectiveIntelligibility
+from torchaudio.pipelines import SQUIM_OBJECTIVE, SQUIM_SUBJECTIVE
+from pysepm import fwSNRseg
 # my modules
 import dataset
-import baselines
 import loss_mel, loss_stft, loss_waveform, loss_embedd
 import trainer
 import helpers as hlp
-from torch.utils.data import Subset
-from torchaudio import save as audiosave
-import argparse
+
 
 class Evaluator(torch.nn.Module):
     def __init__(self,config):
         super().__init__()
         self.config=config
-        self.baselines=baselines.Baselines(config)
         self.load_metrics()
         self.load_eval_dataset()
         self.failcount=0
@@ -58,6 +50,10 @@ class Evaluator(torch.nn.Module):
             "squim_subj" : SQUIM_SUBJECTIVE.get_model().to(device)
         }
 
+        # get speech reference for non-intrusive metrics:
+        self.speechref = hlp.torch_load_mono("../audios/speech_VCTK_4_sentences.wav",48000)[:,:4*48000].unsqueeze(1)
+
+
     def load_eval_dataset(self):
 
         rt60diffmin = self.config["rt60diffmin"]
@@ -68,9 +64,15 @@ class Evaluator(torch.nn.Module):
         # load a test split from the dataset used for training
         self.config["split"] = self.config["eval_split"]
         self.config["p_noise"] = 0 # for evaluation, we do not want noise 
+        self.config["has_clones"] = False # for evaluation, we do not want clone RIRs 
+
+        # define testset to choose samples from in evaluation 
         self.testset_orig = dataset.DatasetReverbTransfer(self.config)
-        # choose a subset of the original test split
+
+        # choose a subset from that testset based on RT60 difference
         indices_chosen = self.testset_orig.get_idx_with_rt60diff(rt60diffmin,rt60diffmax)
+
+        # choose a specific number od d.p. (if N_datapoints is set, 0 means its not set)
         if N_datapoints>0:
             indices_chosen = range(0,N_datapoints)
         self.testset = Subset(self.testset_orig,indices_chosen)
@@ -78,38 +80,32 @@ class Evaluator(torch.nn.Module):
         self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=batch_size_eval, shuffle=False, num_workers=6,pin_memory=True)
 
 
-
     def compute_metrics_oracle(self):
                 
         np.random.seed(0)
         random.seed(0)
         torch.manual_seed(0)
-
-        # get speech reference for non-intrusive metrics:
-        speechref = hlp.torch_load_mono("/home/ubuntu/joanna/reverb-match-cond-u-net/sounds/speech_VCTK_4_sentences.wav",48000)[:,:4*48000].unsqueeze(1)
-        device=self.config["device"]
         
         eval_dict_list=[]
         for j, data in tqdm(enumerate(self.testloader),total = len(self.testloader)):
 
             # get simple datapoint (can be used in batches)
             sContent, sStyle, sTarget, sAnecho, _ = data
+
             # get metrics
             # -> content : target 
-            eval_dict_list.append(self.metrics4batch(j,"oracle","target:content",sTarget,sContent,sAnecho,nmref=speechref))
+            eval_dict_list.append(self.metrics4batch(j,"oracle","target:content",sTarget,sContent,sAnecho,nmref=self.speechref))
             # -> content : anechoic
-            eval_dict_list.append(self.metrics4batch(j,"oracle","target:anecho",sTarget,sAnecho,sAnecho, nmref=speechref))
+            eval_dict_list.append(self.metrics4batch(j,"oracle","target:anecho",sTarget,sAnecho,sAnecho, nmref=self.speechref))
             # -> target : style
-            eval_dict_list.append(self.metrics4batch(j,"oracle","target:style",sTarget,sStyle,sAnecho, nmref=speechref))
+            eval_dict_list.append(self.metrics4batch(j,"oracle","target:style",sTarget,sStyle,sAnecho, nmref=self.speechref))
             # -> content : style
-            eval_dict_list.append(self.metrics4batch(j,"oracle","content:style",sContent,sStyle,sAnecho, nmref=speechref))
-            # -> targetclone : target
-            if j<5000:
-                sTargetClone=self.testset_orig.get_target_clone(j,sAnecho)
-                eval_dict_list.append(self.metrics4batch(j,"oracle","target:targetclone",sTarget,sTargetClone,sAnecho, nmref=speechref))
+            eval_dict_list.append(self.metrics4batch(j,"oracle","content:style",sContent,sStyle,sAnecho, nmref=self.speechref))
+            # -> targetclone : target (2 RIRs from the same room, different position)
+            if self.config["has_clones"]:
+                sTargetClone=self.testset_orig.get_target_clone(j,sAnecho) 
+                eval_dict_list.append(self.metrics4batch(j,"oracle","target:targetclone",sTarget,sTargetClone,sAnecho, nmref=self.speechref))
             
-
-
 
         return eval_dict_list
     
@@ -118,9 +114,6 @@ class Evaluator(torch.nn.Module):
         np.random.seed(0)
         random.seed(0)
         torch.manual_seed(0)
-
-        # get speech reference for non-intrusive metrics:
-        speechref = hlp.torch_load_mono("/home/ubuntu/joanna/reverb-match-cond-u-net/sounds/speech_VCTK_4_sentences.wav",48000)[:,:4*48000].unsqueeze(1)
 
         # load training configuration
         device=self.config["device"]
@@ -145,31 +138,6 @@ class Evaluator(torch.nn.Module):
             eval_dict_list.append(self.metrics4batch(j,eval_tag,"prediction:target", sTarget, sPrediction, sAnecho, nmref=speechref))
             # -> predicion : content
             eval_dict_list.append(self.metrics4batch(j,eval_tag,"prediction:content",sContent, sPrediction, sAnecho,nmref=speechref))
-
-        return eval_dict_list
-    
-    def compute_metrics_baselines(self,baseline):
-        
-        np.random.seed(0)
-        random.seed(0)
-        torch.manual_seed(0)
-
-        # get speech reference for non-intrusive metrics:
-        speechref = hlp.torch_load_mono("/home/ubuntu/joanna/reverb-match-cond-u-net/sounds/speech_VCTK_4_sentences.wav",48000)[:,:4*48000].unsqueeze(1)
-        device=self.config["device"]
-        
-        eval_dict_list=[]
-        for j, data in tqdm(enumerate(self.testloader),total = len(self.testloader)):
-
-            # get datapoint 
-            sContent, _ , sTarget, sAnecho, _ = data
-            # get prediction
-            _, _, _, sPrediction=self.baselines.infer_baseline(data,baseline)
-            # get metrics
-            # -> predicion : target
-            eval_dict_list.append(self.metrics4batch(j,baseline,"prediction:target",sTarget,sPrediction,sAnecho,nmref=speechref))
-            # # -> predicion : content
-            eval_dict_list.append(self.metrics4batch(j,baseline,"prediction:content",sContent,sPrediction, sAnecho,nmref=speechref))
 
         return eval_dict_list
     
@@ -248,14 +216,6 @@ class Evaluator(torch.nn.Module):
         L_srmr_x1=self.measures["srmr"](x1)
         L_srmr_x2=self.measures["srmr"](x2)
 
-        # ----- Compute metrics from urgent -----
-
-        L_mcd_ab=mcd_metric(x1.squeeze(0).cpu().numpy(),x2.squeeze(0).cpu().numpy(), 16000, eps=1.0e-08)
-        L_mcd_ba=mcd_metric(x2.squeeze(0).cpu().numpy(),x1.squeeze(0).cpu().numpy(), 16000, eps=1.0e-08)
-
-        L_lsd_ab=lsd_metric(x1.squeeze(0).cpu().numpy(),x2.squeeze(0).cpu().numpy(), 16000, nfft=0.032, hop=0.016, p=2, eps=1.0e-08)
-        L_lsd_ba=lsd_metric(x2.squeeze(0).cpu().numpy(),x1.squeeze(0).cpu().numpy(), 16000, nfft=0.032, hop=0.016, p=2, eps=1.0e-08)
-
         # ----- Compute metrics from spear -----
         L_fwsnr_ab=fwSNRseg(x1.squeeze(0).cpu().numpy(),x2.squeeze(0).cpu().numpy(),16000)
         L_fwsnr_ba=fwSNRseg(x2.squeeze(0).cpu().numpy(),x1.squeeze(0).cpu().numpy(),16000)
@@ -289,8 +249,6 @@ class Evaluator(torch.nn.Module):
         
         # Type 2: similarity measured using non-symmetric metric 
         # M = (m(a,b)+m(b,a))/2
-        '2L_lsd' : (L_lsd_ab+L_lsd_ba)/2, 
-        '2L_mcd' : (L_mcd_ab+L_mcd_ba)/2, 
         '2S_fwsnr': (L_fwsnr_ab + L_fwsnr_ba)/2,
         '2L_multi-stft': ((L_multi_stft_ab+L_multi_stft_ba)/2),
         '2L_stft': ((L_stft_ab+L_stft_ba)/2),
@@ -331,7 +289,6 @@ def eval_experiment(config,checkpoints_list=None):
         eval_dict_list.extend(myeval.compute_metrics_oracle())
         # list -> df and save 
         pd.DataFrame(eval_dict_list).to_csv(eval_dir+eval_file_name, index=False)
-
 
     elif config["compute_only"]=="baselines":
         eval_file_name="baselines_"+config["eval_file_name"]
@@ -396,7 +353,7 @@ if __name__ == "__main__":
     parser.add_argument("--compute_only", type=str, default=None, help="Specify compute_only parameter.")
     args = parser.parse_args()
 
-    # make a list of checkpoints to compare (in addition to ground truth sounds and baselines)
+    # make a list of checkpoints to compare (in addition to ground truth sounds)
     checkpoint_paths=[
                     "/home/ubuntu/Data/RESULTS-reverb-match-cond-u-net/runs-exp-20-05-2024/10-06-2024--15-02_c_wunet_stft+wave_0.8_0.2/checkpointbest.pt",
                     "/home/ubuntu/Data/RESULTS-reverb-match-cond-u-net/runs-exp-20-05-2024/20-05-2024--22-48_c_wunet_logmel+wave_0.8_0.2/checkpointbest.pt"]
@@ -408,14 +365,13 @@ if __name__ == "__main__":
     config["compute_only"]=args.compute_only
 
     # set parameters for this experiment
-    config["eval_dir"] = "/home/ubuntu/Data/RESULTS-reverb-match-cond-u-net/runs-exp-20-05-2024/"
-    config["eval_file_name"] = "150425_evaluation.csv"
+    config["eval_savedir"] = "/home/ubuntu/Data/RESULTS-reverb-match-cond-u-net/runs-exp-20-05-2024/"
+    config["eval_file_name"] = "evaluation.csv"
     config["rt60diffmin"] = -3
     config["rt60diffmax"] = 3
     config["N_datapoints"] = 0 # if 0 - whole test set included 
     config["batch_size_eval"] = 1
     config["eval_split"] = "test"
-
 
 
     eval_experiment(config,checkpoints_list=checkpoint_paths)

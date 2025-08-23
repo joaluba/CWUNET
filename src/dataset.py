@@ -26,7 +26,7 @@ class DatasetReverbTransfer(Dataset):
         self.device=config["device"]
         self.content_ir=config["content_rir"] 
         self.style_ir=config["style_rir"]
-        self.p_noise=config["p_noise"] if config["split"]=="train" else 0
+        self.p_noise=config["p_noise"] if config["split"]=="train" else 0 # noise is used only in training
         self.has_clones=config["has_clones"] if config["split"]=="train" else False
 
         # --> see config/basic.yaml for more details about the parameters
@@ -135,3 +135,16 @@ class DatasetReverbTransfer(Dataset):
             styleorcontent_idx=0
         df=df_pair.iloc[styleorcontent_idx]
         return df
+    
+    def get_target_clone(self,index, sAnecho):
+        # does not work with batches (TODO)!
+        sAnecho=hlp.batch_squeeze(sAnecho)
+        # get the target signal with a cloned RIR (same room, but different position)
+        df_info=self.get_info(index,id="style")
+        clone_file_path=df_info["ir_clone_file_path"]
+        rir_clone = hlp.torch_load_mono(clone_file_path,self.fs)
+        rir_clone=hlp.truncate_ir_silence(rir_clone, self.fs, threshold_db=20)
+        rir_clone=hlp.torch_normalize_max_abs(rir_clone) 
+        sTargetClone = torch.from_numpy(signal.fftconvolve(sAnecho, rir_clone,mode="full"))[:,:self.sig_len]
+        sTargetClone=hlp.torch_normalize_max_abs(sTargetClone)
+        return sTargetClone.unsqueeze(0)
