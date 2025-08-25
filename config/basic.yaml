@@ -14,7 +14,7 @@ learnable_pooling: False # whether to use learnable pooling in the Reverb Encode
 style_rir: null # null means it will be randomly selected (otherwise put the path to the style RIR)
 content_rir: null # null means it will be randomly selected (otherwise put the path to the content RIR)
 df_metadata: /home/ubuntu/joanna/CWUNET/dataset-metadata/ds2_metadata_example.csv
-has_clones: False # whether the dataset has clones (i.e. for each RIR, it has an alternative RIR from the same room but different pos.)
+has_clones: False 
 p_noise: 0 # probability of adding noise in the training set
 split: train
 
@@ -34,16 +34,15 @@ store_outputs: 1
 # arguments to resume training
 resume_from_checkpoint: null # name of the checkpoint (in the savedir) to resume training from
 
-# evaluation arguments
-device: cpu
+# ----- evaluation parameters -----
+eval_savedir: # can be anything, but I usually use the same as savedir (where the training results are stored)
+eval_file_name: eval.csv
+eval_device: cpu
 batch_size_eval: 2
 checkpoint_development: 0
-eval_file_name: eval_all.csv
-eval_dir: 
 eval_split: test
 rt60diffmin: -3
 rt60diffmax: 3
 N_datapoints: 1000
-train_results_file: /home/ubuntu/guestxr2/home/ubuntu/Data/RESULTS-reverb-match-cond-u-net/runs-exp-15-01-2024/18-01-2024--00-56_many-to-many_stft/checkpoint_best.pt
+train_results_file: /home/ubuntu/guestxr2/home/ubuntu/CWUNET/results/pilot_1/checkpoint_best.pt
 eval_tag: 
-evalsavedir: 

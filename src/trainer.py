@@ -105,7 +105,7 @@ class Trainer(torch.nn.Module):
         
         # ------------- TRAINING START: -------------
         start = time.time()
-        for epoch in range(self.start_epoch,num_epochs):
+        for epoch in range(self.start_epoch,num_epochs+1):
 
             # ----- Update learning rate: -----
             if trainscheme=="joint":
@@ -301,18 +301,6 @@ def load_train_results(datapath, exp_tag, train_tag,configtype="yaml"):
         config=hlp.load_config(pjoin(datapath,exp_tag,train_tag,"train_config.yaml"))
         config["device"]="cpu"
         train_results=torch.load(pjoin(datapath,exp_tag,train_tag,"checkpointbest.pt"),map_location=config["device"])
-    elif configtype=="pt":
-        args=torch.load(pjoin(datapath,exp_tag,train_tag,"trainargs.pt"))
-        args.device="cpu"
-        train_results=torch.load(pjoin(datapath,exp_tag,train_tag,"checkpointbest.pt"),map_location=args.device)
-        config = {attr: getattr(args, attr) for attr in dir(args) if not attr.startswith('__') and not callable(getattr(args, attr))}
-        config["modeltype"]="c_wunet"
-        config_s=hlp.load_config("../config/old_params.yaml")
-        # Identify new parameters in conf2 not present in conf1
-        new_params = {key: config_s[key] for key in config_s if key not in config}
-        # Update conf1 with these new parameters
-        config.update(new_params)
-
     return config,train_results
 
 
@@ -343,11 +331,14 @@ if __name__ == "__main__":
 
     config=hlp.load_config("../CWUNET/config/basic.yaml")
     # set arguments for running a pilot training
-    config["num_epochs"]=3
-    config["checkpoint_step"]=1
-    config["savedir"]="/home/ubuntu/joanna/CWUNET/results/pilot_1"
+    config["projectdir"]="/home/ubuntu/guestxr2/home/ubuntu/joanna/CWUNET/"
+    config["device"]="cuda"
+    config["num_epochs"]=300
+    config["checkpoint_step"]=50
+    config["has_clones"]=False
+    config["savedir"]="/home/ubuntu/guestxr2/home/ubuntu/joanna/CWUNET/results/big_1"
     config["modeltype"]="c_wunet"
-    config["df_metadata"]="../CWUNET/dataset-metadata/ds1_metadata_example.csv"
+    config["df_metadata"]="/home/ubuntu/guestxr2/home/ubuntu/joanna/CWUNET/dataset-metadata/ds1_metadata_big.csv"
     # config["resume_from_checkpoint"]="checkpoint0.pt"
 
     new_experiment=Trainer(config)
