@@ -35,7 +35,7 @@ We use standard supervised training scheme. The training procedure is available 
 
 **Evaluation**
 
-About evaluation..
+The goal of the evaluation is to measure how close the reverb of the estimate $\hat{s_1r_2}$ is to the reverb of the style $s_2r_2$. To our knowledge, there are currently no broadly used metrics that can evaluate the similarity of reverberation between two distinct speech signals. An alternative, we assess the similarity between $\hat{s_1r_2}$ and the ground truth target $s_1r_2$. We use a variety of standard audio metrics (both intrusive and non-intrusive). Evaluation script can be found in `src/evaluation.py`.
 
 **Configuration**
 
