@@ -139,12 +139,25 @@ class DatasetReverbTransfer(Dataset):
     def get_target_clone(self,index, sAnecho):
         # does not work with batches (TODO)!
         sAnecho=hlp.batch_squeeze(sAnecho)
-        # get the target signal with a cloned RIR (same room, but different position)
+
         df_info=self.get_info(index,id="style")
-        clone_file_path=df_info["ir_clone_file_path"]
-        rir_clone = hlp.torch_load_mono(clone_file_path,self.fs)
+
+        ir_file_path=df_info["ir_file_path"]
+        clone_ir_file_path=df_info["ir_clone_file_path"]
+
+        rir = hlp.torch_load_mono(ir_file_path,self.fs)
+        rir_clone = hlp.torch_load_mono(clone_ir_file_path,self.fs)
+
+        rir=hlp.truncate_ir_silence(rir, self.fs, threshold_db=20)
         rir_clone=hlp.truncate_ir_silence(rir_clone, self.fs, threshold_db=20)
+
+        rir=hlp.torch_normalize_max_abs(rir) 
         rir_clone=hlp.torch_normalize_max_abs(rir_clone) 
+
+        sTargetOrig = torch.from_numpy(signal.fftconvolve(sAnecho, rir,mode="full"))[:,:self.sig_len]
         sTargetClone = torch.from_numpy(signal.fftconvolve(sAnecho, rir_clone,mode="full"))[:,:self.sig_len]
+
+        sTargetOrig=hlp.torch_normalize_max_abs(sTargetOrig)
         sTargetClone=hlp.torch_normalize_max_abs(sTargetClone)
-        return sTargetClone.unsqueeze(0)
+
+        return sTargetOrig.unsqueeze(0),sTargetClone.unsqueeze(0)

@@ -1,29 +1,29 @@
 # ---- general arguments ----
-projectdir: /home/ubuntu/joanna/CWUNET/
-device: cpu
+projectdir: /home/ubuntu/guestxr2/home/ubuntu/joanna/CWUNET/
+device: cuda
 fs: 48000 
 
 # ---- data and model parameters ----
 sig_len: 98304 
 rev_emb_len: 512 # length of the reverberation embedding
-n_blocks_revenc: 12 # number of blocks in the Reverb Encoder
+n_blocks_revenc: 14 # number of blocks in the Reverb Encoder
 n_blocks_enc: 12 # number of blocks in the Encoder and Decoder of the Wave-U-Net
 learnable_pooling: False # whether to use learnable pooling in the Reverb Encoder
 
 # ---- dataset parameters ----
 style_rir: null # null means it will be randomly selected (otherwise put the path to the style RIR)
 content_rir: null # null means it will be randomly selected (otherwise put the path to the content RIR)
-df_metadata: /home/ubuntu/joanna/CWUNET/dataset-metadata/ds2_metadata_example.csv
+df_metadata: /home/ubuntu/guestxr2/home/ubuntu/joanna/CWUNET/dataset-metadata/ds1_metadata_big.csv
 has_clones: False 
 p_noise: 0 # probability of adding noise in the training set
 split: train
 
 # ---- training parameters ----
-savedir: /home/ubuntu/Data_guestxr/RESULTS-reverb-match-cond-u-net/ # where to store training results,
+savedir: /home/ubuntu/guestxr2/home/ubuntu/joanna/CWUNET/results/ # where to store training results,
 # savedir should have a unique name to later find the results (like a data and important params)
 modeltype: c_wunet 
 num_epochs: 300
-checkpoint_step: 10
+checkpoint_step: 50
 batch_size: 8
 learn_rate: 0.0001
 trainscheme: "separate"
@@ -44,5 +44,4 @@ eval_split: test
 rt60diffmin: -3
 rt60diffmax: 3
 N_datapoints: 1000
-train_results_file: /home/ubuntu/guestxr2/home/ubuntu/CWUNET/results/pilot_1/checkpoint_best.pt
 eval_tag: 

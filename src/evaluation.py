@@ -29,7 +29,7 @@ class Evaluator(torch.nn.Module):
     def load_metrics(self):
         device=self.config["device"]
 
-        my_best_checkpoint_path="/home/ubuntu/Data/RESULTS-reverb-match-cond-u-net/runs-exp-20-05-2024/10-06-2024--15-02_c_wunet_stft+wave_0.8_0.2/checkpointbest.pt"
+        my_best_checkpoint_path="/home/ubuntu/guestxr2/home/ubuntu/joanna/CWUNET/results/big_1/checkpointbest.pt"
 
         self.measures= {
             "multi-stft" : loss_stft.MultiResolutionSTFTLoss().to(device), 
@@ -44,14 +44,14 @@ class Evaluator(torch.nn.Module):
             "srmr" : SpeechReverberationModulationEnergyRatio(16000).to(device),
             "pesq" : PerceptualEvaluationSpeechQuality(16000, 'wb').to(device),
             "stoi" : ShortTimeObjectiveIntelligibility(16000).to(device),
-            "emb_cos": loss_embedd.EmbeddingLossCosine(my_best_checkpoint_path,device="cuda"),
-            "emb_euc": loss_embedd.EmbeddingLossEuclidean(my_best_checkpoint_path,device="cuda"),
+            "emb_cos": loss_embedd.EmbeddingLossCosine(my_best_checkpoint_path,device=device),
+            "emb_euc": loss_embedd.EmbeddingLossEuclidean(my_best_checkpoint_path,device=device),
             "squim_obj" : SQUIM_OBJECTIVE.get_model().to(device),
             "squim_subj" : SQUIM_SUBJECTIVE.get_model().to(device)
         }
 
         # get speech reference for non-intrusive metrics:
-        self.speechref = hlp.torch_load_mono("../audios/speech_VCTK_4_sentences.wav",48000)[:,:4*48000].unsqueeze(1)
+        self.speechref = hlp.torch_load_mono("/home/ubuntu/guestxr2/home/ubuntu/joanna/CWUNET/audios/speech_VCTK_4_sentences.wav",48000)[:,:4*48000].unsqueeze(1)
 
 
     def load_eval_dataset(self):
@@ -64,7 +64,6 @@ class Evaluator(torch.nn.Module):
         # load a test split from the dataset used for training
         self.config["split"] = self.config["eval_split"]
         self.config["p_noise"] = 0 # for evaluation, we do not want noise 
-        self.config["has_clones"] = False # for evaluation, we do not want clone RIRs 
 
         # define testset to choose samples from in evaluation 
         self.testset_orig = dataset.DatasetReverbTransfer(self.config)
@@ -103,8 +102,8 @@ class Evaluator(torch.nn.Module):
             eval_dict_list.append(self.metrics4batch(j,"oracle","content:style",sContent,sStyle,sAnecho, nmref=self.speechref))
             # -> targetclone : target (2 RIRs from the same room, different position)
             if self.config["has_clones"]:
-                sTargetClone=self.testset_orig.get_target_clone(j,sAnecho) 
-                eval_dict_list.append(self.metrics4batch(j,"oracle","target:targetclone",sTarget,sTargetClone,sAnecho, nmref=self.speechref))
+                sTargetOrig, sTargetClone=self.testset_orig.get_target_clone(j,sAnecho) 
+                eval_dict_list.append(self.metrics4batch(j,"oracle","target:targetclone",sTargetOrig,sTargetClone,sAnecho, nmref=self.speechref))
             
 
         return eval_dict_list
@@ -131,13 +130,11 @@ class Evaluator(torch.nn.Module):
             sContent, sStyle, sTarget, sAnecho, _ = data
             # get prediction
             _, _, _, sPrediction=trainer.infer(model, data, device)
-            if bool(config_train["is_vae"]):      
-                sPrediction, mu, log_var = sPrediction
             # get metrics
             # -> predicion : target
-            eval_dict_list.append(self.metrics4batch(j,eval_tag,"prediction:target", sTarget, sPrediction, sAnecho, nmref=speechref))
+            eval_dict_list.append(self.metrics4batch(j,eval_tag,"prediction:target", sTarget, sPrediction, sAnecho, nmref=self.speechref))
             # -> predicion : content
-            eval_dict_list.append(self.metrics4batch(j,eval_tag,"prediction:content",sContent, sPrediction, sAnecho,nmref=speechref))
+            eval_dict_list.append(self.metrics4batch(j,eval_tag,"prediction:content",sContent, sPrediction, sAnecho,nmref=self.speechref))
 
         return eval_dict_list
     
@@ -274,7 +271,7 @@ class Evaluator(torch.nn.Module):
 def eval_experiment(config,checkpoints_list=None):
 
     eval_dict_list=[]
-    eval_dir=config["eval_dir"]
+    eval_dir=config["eval_savedir"]
     
 
     # ---- initialize evaluator ----
@@ -290,21 +287,11 @@ def eval_experiment(config,checkpoints_list=None):
         # list -> df and save 
         pd.DataFrame(eval_dict_list).to_csv(eval_dir+eval_file_name, index=False)
 
-    elif config["compute_only"]=="baselines":
-        eval_file_name="baselines_"+config["eval_file_name"]
-        # --- evaluate baselines ----
-        print(f"Computing metrics -> baselines ")
-        eval_dict_list.extend(myeval.compute_metrics_baselines("anecho+fins"))
-        eval_dict_list.extend(myeval.compute_metrics_baselines("dfnet+fins"))
-        eval_dict_list.extend(myeval.compute_metrics_baselines("wpe+fins"))
-        # list -> df and save 
-        pd.DataFrame(eval_dict_list).to_csv(eval_dir+eval_file_name, index=False)
-
     elif config["compute_only"]=="models":
         eval_file_name="models_"+config["eval_file_name"]
         # ---- evaluate my trained models ----
         print(f"Computing metrics -> models ")
-        # a loop over all conditions of the considered experiment 
+        # a loop over all conditions of the considered experiment (eval_dir=unique for each experiment)
         # each condition contains a checkpoint for a different model version
         if checkpoints_list==None:
     
@@ -353,25 +340,24 @@ if __name__ == "__main__":
     parser.add_argument("--compute_only", type=str, default=None, help="Specify compute_only parameter.")
     args = parser.parse_args()
 
-    # make a list of checkpoints to compare (in addition to ground truth sounds)
-    checkpoint_paths=[
-                    "/home/ubuntu/Data/RESULTS-reverb-match-cond-u-net/runs-exp-20-05-2024/10-06-2024--15-02_c_wunet_stft+wave_0.8_0.2/checkpointbest.pt",
-                    "/home/ubuntu/Data/RESULTS-reverb-match-cond-u-net/runs-exp-20-05-2024/20-05-2024--22-48_c_wunet_logmel+wave_0.8_0.2/checkpointbest.pt"]
-    
-
     # load default config
-    config=hlp.load_config(pjoin("/home/ubuntu/joanna/reverb-match-cond-u-net/config/basic.yaml"))
+    config=hlp.load_config(pjoin("/home/ubuntu/guestxr2/home/ubuntu/joanna/CWUNET/config/basic.yaml"))
 
     config["compute_only"]=args.compute_only
 
     # set parameters for this experiment
-    config["eval_savedir"] = "/home/ubuntu/Data/RESULTS-reverb-match-cond-u-net/runs-exp-20-05-2024/"
+    config["eval_savedir"] = "/home/ubuntu/guestxr2/home/ubuntu/joanna/CWUNET/results/big_1/"
     config["eval_file_name"] = "evaluation.csv"
     config["rt60diffmin"] = -3
     config["rt60diffmax"] = 3
-    config["N_datapoints"] = 0 # if 0 - whole test set included 
+    config["N_datapoints"] = 100 # if 0 - whole test set included 
     config["batch_size_eval"] = 1
     config["eval_split"] = "test"
 
+    # make a list of checkpoints to compare (in addition to ground truth sounds)
+    checkpoint_paths=[
+                    "/home/ubuntu/guestxr2/home/ubuntu/joanna/CWUNET/results/big_1/checkpoint100.pt",
+                    "/home/ubuntu/guestxr2/home/ubuntu/joanna/CWUNET/results/big_1/checkpointbest.pt"]
+    
 
     eval_experiment(config,checkpoints_list=checkpoint_paths)

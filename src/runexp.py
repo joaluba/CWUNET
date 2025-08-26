@@ -63,7 +63,7 @@ if __name__ == "__main__":
     config["num_epochs"]=300
 
     # Permuting parameters
-    perm_losses = [ "stft+wave", "logmel+wave"]
+    perm_losses = ["stft+wave", "stft+wave+emb", "logmel+wave"]
     perm_model_types=["c_wunet"]
 
     # Conditions combinations list
@@ -97,6 +97,8 @@ if __name__ == "__main__":
             config["loss_alphas"] = [1]
         elif (config["losstype"]=="stft+wave")| (config["losstype"]=="logmel+wave"):
             config["loss_alphas"] = [0.8,0.2]
+        elif (config["losstype"]=="stft+wave+emb"):
+            config["loss_alphas"] = [0.6,0.2,0.2]
 
         # create training tags based on date and params
         date_tag = datetime.now().strftime("%d-%m-%Y--%H-%M")
@@ -117,15 +119,6 @@ if __name__ == "__main__":
         note_down_finished_cond(condfilepath,lines[cond_count], config["savedir"])
         cond_count+=1
         
-
-
-
-
-
-
-    
-
-
 
 
 

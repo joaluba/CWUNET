@@ -29,7 +29,6 @@ class load_chosen_loss(torch.nn.Module):
             self.criterion_audio1=loss_stft.MultiResolutionSTFTLoss().to(device)
             self.criterion_audio2=loss_waveform.MultiWindowShapeLoss().to(device)
 
-
         elif self.losstype=="stft+wave+emb":
             self.criterion_audio1=loss_stft.MultiResolutionSTFTLoss().to(device)
             self.criterion_audio2=loss_waveform.MultiWindowShapeLoss().to(device)
@@ -77,8 +76,8 @@ class load_chosen_loss(torch.nn.Module):
             L_stft = L_sc + L_mag 
             L_wave = self.criterion_audio2(sTarget.squeeze(1), sPrediction.squeeze(1))
             # get the embedding of the prediction
-            embTarget = model_combined.conditioning_network(sTarget)
-            L_emb = self.criterion_emb(embStyle,embTarget)
+            embPredict = model_combined.conditioning_network(sPrediction)
+            L_emb = self.criterion_emb(embStyle,embPredict)
             L = [L_stft,L_wave, L_emb]
             L_names =["L_stft","L_wave","L_emb"]
 
