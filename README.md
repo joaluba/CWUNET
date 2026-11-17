@@ -50,4 +50,5 @@ Please visit [this website](https://joaluba.github.io/CWUNET-demo/) to listen to
 The code is licensed under **CC BY-NC 4.0**. 
 
 **Implementation note** 
+
 This repository includes changes made after the published experiments, notably a smaller reverb encoder, and its defaults differ from the paper’s setup.
